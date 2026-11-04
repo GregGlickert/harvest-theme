@@ -2,6 +2,36 @@
 
 A cozy dark Thanksgiving theme for a macOS coding setup: Ghostty, VS Code, Claude Code, Slack and Chrome, plus a matching wallpaper.
 
+## Screenshots
+
+These are real screenshots of each app with Harvest on, using a small sample project.
+
+### Ghostty
+
+![Ghostty with the Harvest theme](previews/ghostty.png)
+
+### Claude Code
+
+Shows the theme, the Thanksgiving countdown and themed spinner verbs ("Baked for 4s"). Code inside diffs uses Claude Code's own syntax colors, which the theme doesn't change.
+
+![Claude Code with the Harvest theme](previews/claude-code.png)
+
+### VS Code
+
+![VS Code with the Harvest theme](previews/vscode.png)
+
+### Dark academia wallpapers
+
+Separate from Harvest. See [Dark academia wallpapers](#dark-academia-wallpapers-1) below for how to regenerate them.
+
+Laptop (3024 x 1964):
+
+![Dark academia wallpaper for a laptop](dark-academia/dark-academia-3024x1964.png)
+
+Ultrawide (2560 x 1080):
+
+![Dark academia wallpaper for an ultrawide display](dark-academia/dark-academia-2560x1080.png)
+
 ## Install
 
 The script expects this repo at `~/.config/harvest-theme`, and it needs Python 3 and VS Code's `code` command.
