@@ -1,0 +1,4 @@
+# Local state and copies of personal config files
+state.json
+backup/
+.DS_Store

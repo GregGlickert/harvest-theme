@@ -1,0 +1,18 @@
+{
+  "name": "harvest-theme",
+  "displayName": "Harvest",
+  "description": "A cozy dark Thanksgiving color theme.",
+  "version": "1.0.0",
+  "publisher": "local",
+  "engines": { "vscode": "^1.60.0" },
+  "categories": ["Themes"],
+  "contributes": {
+    "themes": [
+      {
+        "label": "Harvest",
+        "uiTheme": "vs-dark",
+        "path": "./themes/harvest-color-theme.json"
+      }
+    ]
+  }
+}

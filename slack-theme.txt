@@ -1,0 +1,16 @@
+Harvest theme for Slack
+
+Slack keeps its theme in your account, so apply it by hand:
+1. Slack > Preferences (Cmd+,) > Appearance or Themes.
+2. Set Slack to Dark mode, then choose the custom theme option.
+3. Enter these colors:
+
+   System navigation    #1C140F
+   Selected items       #E8863A
+   Presence indication  #5FB3C4
+   Notifications        #E9B949
+
+If Slack offers a single box for pasting a theme, paste this line:
+#1C140F,#E8863A,#5FB3C4,#E9B949
+
+To turn it off, choose one of Slack's built-in themes again.

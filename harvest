@@ -1,0 +1,187 @@
+#!/usr/bin/env python3
+"""Turn the Harvest Thanksgiving theme on or off: harvest on | off | status"""
+import datetime
+import json
+import os
+import re
+import shutil
+import subprocess
+import sys
+from pathlib import Path
+
+HOME = Path.home()
+ROOT = HOME / ".config/harvest-theme"
+STATE = ROOT / "state.json"
+BACKUPS = ROOT / "backup"
+
+GHOSTTY = HOME / ".config/ghostty/config"
+VSCODE = HOME / "Library/Application Support/Code/User/settings.json"
+CLAUDE = HOME / ".claude/settings.json"
+CLAUDE_THEME = HOME / ".claude/themes/harvest.json"
+
+GHOSTTY_LINE = re.compile(r'^theme\s*=.*$', re.M)
+VSCODE_LINE = re.compile(r'("workbench\.colorTheme"\s*:\s*)"([^"]*)"')
+
+HARVEST_GHOSTTY = 'theme = "Harvest"'
+HARVEST_VSCODE = "Harvest"
+HARVEST_CLAUDE = {
+    "theme": "custom:harvest",
+    "statusLine": {"type": "command", "command": str(ROOT / "statusline.sh")},
+    "spinnerVerbs": {
+        "mode": "replace",
+        "verbs": [
+            "Basting", "Brining", "Carving", "Simmering gravy", "Mashing potatoes",
+            "Rolling pie crust", "Whisking", "Stuffing", "Glazing", "Preheating",
+            "Passing the rolls", "Checking the turkey", "Setting the table",
+            "Saving room for pie", "Reheating leftovers", "Loosening belt",
+        ],
+    },
+}
+
+MANUAL_STEPS = f"""
+A few things need you:
+  Ghostty    Press Cmd+Shift+, to reload the config.
+  Claude     Open a new terminal session, or restart running ones.
+  Slack      Follow {ROOT}/slack-theme.txt
+  Chrome     chrome://extensions > Developer mode > Load unpacked >
+             {ROOT}/chrome/harvest-theme
+  Wallpaper  System Settings > Wallpaper > Add Photo >
+             {ROOT}/wallpaper/harvest-3024x1964.png
+  Accent     System Settings > Appearance > Accent color > Orange
+"""
+
+UNDO_STEPS = """
+Undo these by hand if you changed them:
+  Ghostty    Press Cmd+Shift+, to reload the config.
+  Slack      Pick one of Slack's built-in themes.
+  Chrome     Settings > Appearance > Reset to default.
+  Wallpaper  System Settings > Wallpaper.
+  Accent     System Settings > Appearance > Accent color.
+"""
+
+
+def write_atomic(path, text):
+    real = Path(os.path.realpath(path))
+    tmp = real.with_name(real.name + ".harvest-tmp")
+    tmp.write_text(text)
+    shutil.copymode(real, tmp)
+    os.replace(tmp, real)
+
+
+def backup():
+    stamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+    folder = BACKUPS / stamp
+    folder.mkdir(parents=True, exist_ok=True)
+    for name, path in (("ghostty-config", GHOSTTY), ("vscode-settings.json", VSCODE), ("claude-settings.json", CLAUDE)):
+        shutil.copy2(path, folder / name)
+    return folder
+
+
+def dump_json(data):
+    return json.dumps(data, indent=2, ensure_ascii=False) + "\n"
+
+
+def turn_on():
+    if STATE.exists():
+        print("Harvest is already on. Re-applying without touching your saved originals.")
+        state = json.loads(STATE.read_text())
+    else:
+        ghostty = GHOSTTY_LINE.search(GHOSTTY.read_text())
+        vscode = VSCODE_LINE.search(VSCODE.read_text())
+        claude = json.loads(CLAUDE.read_text())
+        state = {
+            "ghostty_line": ghostty.group(0) if ghostty else None,
+            "vscode_theme": vscode.group(2) if vscode else None,
+            "claude": {key: claude[key] for key in HARVEST_CLAUDE if key in claude},
+            "backup": str(backup()),
+        }
+        STATE.write_text(dump_json(state))
+
+    # Ghostty: only the theme line changes.
+    (HOME / ".config/ghostty/themes").mkdir(parents=True, exist_ok=True)
+    link = HOME / ".config/ghostty/themes/Harvest"
+    if not link.exists():
+        link.symlink_to(ROOT / "ghostty/Harvest")
+    text = GHOSTTY.read_text()
+    if GHOSTTY_LINE.search(text):
+        text = GHOSTTY_LINE.sub(HARVEST_GHOSTTY, text, count=1)
+    else:
+        text = HARVEST_GHOSTTY + "\n" + text
+    write_atomic(GHOSTTY, text)
+
+    # VS Code: only the color theme line changes, so comments survive.
+    subprocess.run(["code", "--install-extension", str(ROOT / "vscode/harvest-theme.vsix"), "--force"],
+                   check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    text = VSCODE.read_text()
+    if not VSCODE_LINE.search(text):
+        sys.exit("Couldn't find workbench.colorTheme in VS Code settings; set the Harvest theme there by hand.")
+    write_atomic(VSCODE, VSCODE_LINE.sub(rf'\g<1>"{HARVEST_VSCODE}"', text, count=1))
+
+    # Claude Code: a real copy, plus only the keys Harvest owns.
+    CLAUDE_THEME.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(ROOT / "claude/harvest.json", CLAUDE_THEME)
+    claude = json.loads(CLAUDE.read_text())
+    claude.update(HARVEST_CLAUDE)
+    write_atomic(CLAUDE, dump_json(claude))
+
+    print("🦃 Harvest is on.")
+    print(MANUAL_STEPS)
+
+
+def turn_off():
+    if not STATE.exists():
+        print("Harvest is already off.")
+        return
+    state = json.loads(STATE.read_text())
+
+    # Anything you changed yourself since `harvest on` is left alone.
+    text = GHOSTTY.read_text()
+    if HARVEST_GHOSTTY in text:
+        if state["ghostty_line"]:
+            text = text.replace(HARVEST_GHOSTTY, state["ghostty_line"], 1)
+        else:
+            text = text.replace(HARVEST_GHOSTTY + "\n", "", 1)
+        write_atomic(GHOSTTY, text)
+
+    text = VSCODE.read_text()
+    match = VSCODE_LINE.search(text)
+    if match and match.group(2) == HARVEST_VSCODE and state["vscode_theme"]:
+        write_atomic(VSCODE, VSCODE_LINE.sub(rf'\g<1>"{state["vscode_theme"]}"', text, count=1))
+
+    claude = json.loads(CLAUDE.read_text())
+    for key, value in HARVEST_CLAUDE.items():
+        if claude.get(key) != value:
+            continue
+        if key in state["claude"]:
+            claude[key] = state["claude"][key]
+        else:
+            del claude[key]
+    write_atomic(CLAUDE, dump_json(claude))
+
+    STATE.unlink()
+    print("Harvest is off. Your previous themes are back.")
+    print(UNDO_STEPS)
+
+
+def status():
+    claude = json.loads(CLAUDE.read_text())
+    vscode = VSCODE_LINE.search(VSCODE.read_text())
+    checks = {
+        "Ghostty": HARVEST_GHOSTTY in GHOSTTY.read_text(),
+        "VS Code": bool(vscode and vscode.group(2) == HARVEST_VSCODE),
+        "Claude Code theme": claude.get("theme") == HARVEST_CLAUDE["theme"],
+        "Claude Code status line": claude.get("statusLine") == HARVEST_CLAUDE["statusLine"],
+        "Claude Code spinner verbs": claude.get("spinnerVerbs") == HARVEST_CLAUDE["spinnerVerbs"],
+    }
+    print(f"Harvest is {'on' if STATE.exists() else 'off'}.")
+    for name, active in checks.items():
+        print(f"  {name}: {'on' if active else 'off'}")
+    print("  Slack, Chrome, wallpaper, accent: set by hand, can't be checked here")
+
+
+COMMANDS = {"on": turn_on, "off": turn_off, "status": status}
+
+if __name__ == "__main__":
+    if len(sys.argv) != 2 or sys.argv[1] not in COMMANDS:
+        sys.exit("usage: harvest on | off | status")
+    COMMANDS[sys.argv[1]]()
