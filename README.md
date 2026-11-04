@@ -33,3 +33,14 @@ harvest status
 - `chrome/harvest-theme/`: unpacked Chrome theme
 - `slack-theme.txt`: Slack colors
 - `wallpaper/`: wallpaper, its SVG and the script that generates it
+
+## Dark academia wallpapers
+
+`dark-academia/` holds a separate pixel art wallpaper of a candlelit library at night, in laptop (3024 x 1964) and ultrawide (2560 x 1080) sizes. `harvest` doesn't use it.
+
+The script only needs Python 3 and writes the image to the current folder:
+
+```bash
+python3 make_dark_academia.py laptop
+python3 make_dark_academia.py ultrawide
+```
